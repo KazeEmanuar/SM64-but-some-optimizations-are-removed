@@ -2653,15 +2653,16 @@ const BehaviorScript bhvBowserSubDoor[] = {
     END_LOOP(),
 };
 
+void load_object_collision_modelPERMANENT(void);
 const BehaviorScript bhvBowsersSub[] = {
     BEGIN(OBJ_LIST_SURFACE),
     OR_INT(oFlags, (OBJ_FLAG_ACTIVE_FROM_AFAR | OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE)),
     SET_FLOAT(oDrawingDistance, 20000),
     SET_FLOAT(oCollisionDistance, 20000),
     LOAD_COLLISION_DATA(ddd_seg7_collision_submarine),
+    CALL_NATIVE(load_object_collision_modelPERMANENT),
     BEGIN_LOOP(),
         CALL_NATIVE(bhv_bowsers_sub_loop),
-        CALL_NATIVE(load_object_collision_model),
     END_LOOP(),
 };
 

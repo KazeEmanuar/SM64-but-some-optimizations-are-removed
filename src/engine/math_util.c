@@ -161,10 +161,12 @@ void mtxf_identity(Mat4 mtx) {
     register f32 *dest;
     // Note: These loops need to be on one line to match on PAL
     // initialize everything except the first and last cells to 0
-    for (dest = (f32 *) mtx + 1, i = 0; i < 14; dest++, i++) *dest = 0;
+    for (dest = (f32 *) mtx + 1, i = 0; i < 14; dest++, i++)
+        *dest = 0;
 
     // initialize the diagonal cells to 1
-    for (dest = (f32 *) mtx, i = 0; i < 4; dest += 5, i++) *dest = 1;
+    for (dest = (f32 *) mtx, i = 0; i < 4; dest += 5, i++)
+        *dest = 1;
 }
 
 /**
@@ -332,6 +334,7 @@ void mtxf_rotate_xyz_and_translate(Mat4 dest, Vec3f b, Vec3s c) {
  * 'angle' rotates the object while still facing the camera.
  */
 void mtxf_billboard(Mat4 dest, Mat4 mtx, Vec3f position, s16 angle) {
+    s32 i, j;
     dest[0][0] = coss(angle);
     dest[0][1] = sins(angle);
     dest[0][2] = 0;
@@ -347,13 +350,14 @@ void mtxf_billboard(Mat4 dest, Mat4 mtx, Vec3f position, s16 angle) {
     dest[2][2] = 1;
     dest[2][3] = 0;
 
-    dest[3][0] =
-        mtx[0][0] * position[0] + mtx[1][0] * position[1] + mtx[2][0] * position[2] + mtx[3][0];
-    dest[3][1] =
-        mtx[0][1] * position[0] + mtx[1][1] * position[1] + mtx[2][1] * position[2] + mtx[3][1];
-    dest[3][2] =
-        mtx[0][2] * position[0] + mtx[1][2] * position[1] + mtx[2][2] * position[2] + mtx[3][2];
-    dest[3][3] = 1;
+    // Initialize the fourth row using a loop
+    for (i = 0; i < 3; i++) {
+        dest[3][i] = 0;
+        for (j = 0; j < 3; j++) {
+            dest[3][i] += mtx[j][i] * position[j];
+        }
+        dest[3][i] += mtx[3][i];
+    }
 }
 
 /**
@@ -481,47 +485,29 @@ void mtxf_align_terrain_triangle(Mat4 mtx, Vec3f pos, s16 yaw, f32 radius) {
  * then a.
  */
 void mtxf_mul(Mat4 dest, Mat4 a, Mat4 b) {
-    Mat4 temp;
+    s32 i, j;
     register f32 entry0;
     register f32 entry1;
     register f32 entry2;
 
-    // column 0
-    entry0 = a[0][0];
-    entry1 = a[0][1];
-    entry2 = a[0][2];
-    temp[0][0] = entry0 * b[0][0] + entry1 * b[1][0] + entry2 * b[2][0];
-    temp[0][1] = entry0 * b[0][1] + entry1 * b[1][1] + entry2 * b[2][1];
-    temp[0][2] = entry0 * b[0][2] + entry1 * b[1][2] + entry2 * b[2][2];
+    for (i = 0; i < 4; i++) {
+        entry0 = a[i][0];
+        entry1 = a[i][1];
+        entry2 = a[i][2];
 
-    // column 1
-    entry0 = a[1][0];
-    entry1 = a[1][1];
-    entry2 = a[1][2];
-    temp[1][0] = entry0 * b[0][0] + entry1 * b[1][0] + entry2 * b[2][0];
-    temp[1][1] = entry0 * b[0][1] + entry1 * b[1][1] + entry2 * b[2][1];
-    temp[1][2] = entry0 * b[0][2] + entry1 * b[1][2] + entry2 * b[2][2];
+        for (j = 0; j < 3; j++) {
+            dest[i][j] = entry0 * b[0][j] + entry1 * b[1][j] + entry2 * b[2][j];
+        }
 
-    // column 2
-    entry0 = a[2][0];
-    entry1 = a[2][1];
-    entry2 = a[2][2];
-    temp[2][0] = entry0 * b[0][0] + entry1 * b[1][0] + entry2 * b[2][0];
-    temp[2][1] = entry0 * b[0][1] + entry1 * b[1][1] + entry2 * b[2][1];
-    temp[2][2] = entry0 * b[0][2] + entry1 * b[1][2] + entry2 * b[2][2];
+        if (i == 3) {
+            dest[i][0] += b[3][0];
+            dest[i][1] += b[3][1];
+            dest[i][2] += b[3][2];
+        }
+    }
 
-    // column 3
-    entry0 = a[3][0];
-    entry1 = a[3][1];
-    entry2 = a[3][2];
-    temp[3][0] = entry0 * b[0][0] + entry1 * b[1][0] + entry2 * b[2][0] + b[3][0];
-    temp[3][1] = entry0 * b[0][1] + entry1 * b[1][1] + entry2 * b[2][1] + b[3][1];
-    temp[3][2] = entry0 * b[0][2] + entry1 * b[1][2] + entry2 * b[2][2] + b[3][2];
-
-    temp[0][3] = temp[1][3] = temp[2][3] = 0;
-    temp[3][3] = 1;
-
-    mtxf_copy(dest, temp);
+    dest[0][3] = dest[1][3] = dest[2][3] = 0;
+    dest[3][3] = 1;
 }
 
 /**
@@ -693,7 +679,7 @@ static u16 atan2_lookup(f32 y, f32 x) {
     if (x == 0) {
         ret = gArctanTable[0];
     } else {
-        ret = gArctanTable[(s32)(y / x * 1024 + 0.5f)];
+        ret = gArctanTable[(s32) (y / x * 1024 + 0.5f)];
     }
     return ret;
 }

@@ -26,21 +26,10 @@
 .ascii "SUPER MARIO 64      "   /* Internal ROM name */
 .endif
 .word  0x00000000               /* Unknown */
-.word  0x0000004E               /* Cartridge */
-.ascii "SM"                     /* Cartridge ID */
+.word  0x00000000               /* ED marker */
+.byte 0x45                  /* savefile type */
+.byte 0x44                  /* savefile type */
+.byte 0x00                  /* savefile type */
 
-/* Region */
-.if VERSION_US == 1
-    .ascii "E"                  /* NTSC-U (North America) */
-.elseif (VERSION_JP == 1 || VERSION_SH == 1)
-    .ascii "J"                  /* NTSC-J (Japan) */
-.else
-    .ascii "P"                  /* PAL (Europe) */
-.endif
-
-.if VERSION_SH == 1
-    .byte 0x03                  /* Version (Shindou) */
-.else
-    .byte  0x00                 /* Version */
-.endif
+.byte 0x10                  /* savefile type */
 

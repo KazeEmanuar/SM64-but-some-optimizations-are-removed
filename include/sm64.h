@@ -3,6 +3,7 @@
 
 // Global header for Super Mario 64
 
+#define PROFILING 1
 #include "types.h"
 #include "config.h"
 #include "object_fields.h"

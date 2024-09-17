@@ -20,7 +20,6 @@
 #include "object_list_processor.h"
 #include "mario.h"
 
-
 /**
  * Flags controlling what debug info is displayed.
  */
@@ -143,7 +142,6 @@ s32 gNumStaticSurfaces;
  */
 struct MemoryPool *gObjectMemoryPool;
 
-
 s16 gCheckingSurfaceCollisionsForCamera;
 s16 gFindFloorIncludeSurfaceIntangible;
 s16 *gEnvironmentRegions;
@@ -202,12 +200,16 @@ struct ParticleProperties sParticleTypes[] = {
     { PARTICLE_SPARKLES, ACTIVE_PARTICLE_SPARKLES, MODEL_SPARKLES, bhvSparkleParticleSpawner },
     { PARTICLE_BUBBLE, ACTIVE_PARTICLE_BUBBLE, MODEL_BUBBLE, bhvBubbleParticleSpawner },
     { PARTICLE_WATER_SPLASH, ACTIVE_PARTICLE_WATER_SPLASH, MODEL_WATER_SPLASH, bhvWaterSplash },
-    { PARTICLE_IDLE_WATER_WAVE,      ACTIVE_PARTICLE_IDLE_WATER_WAVE,      MODEL_IDLE_WATER_WAVE,      bhvIdleWaterWave },
-    { PARTICLE_PLUNGE_BUBBLE,        ACTIVE_PARTICLE_PLUNGE_BUBBLE,        MODEL_WHITE_PARTICLE_SMALL, bhvPlungeBubble },
+    { PARTICLE_IDLE_WATER_WAVE, ACTIVE_PARTICLE_IDLE_WATER_WAVE, MODEL_IDLE_WATER_WAVE,
+      bhvIdleWaterWave },
+    { PARTICLE_PLUNGE_BUBBLE, ACTIVE_PARTICLE_PLUNGE_BUBBLE, MODEL_WHITE_PARTICLE_SMALL,
+      bhvPlungeBubble },
     { PARTICLE_WAVE_TRAIL, ACTIVE_PARTICLE_WAVE_TRAIL, MODEL_WAVE_TRAIL, bhvWaveTrail },
     { PARTICLE_FIRE, ACTIVE_PARTICLE_FIRE, MODEL_RED_FLAME, bhvFireParticleSpawner },
-    { PARTICLE_SHALLOW_WATER_WAVE,   ACTIVE_PARTICLE_SHALLOW_WATER_WAVE,   MODEL_NONE,                 bhvShallowWaterWave },
-    { PARTICLE_SHALLOW_WATER_SPLASH, ACTIVE_PARTICLE_SHALLOW_WATER_SPLASH, MODEL_NONE,                 bhvShallowWaterSplash },
+    { PARTICLE_SHALLOW_WATER_WAVE, ACTIVE_PARTICLE_SHALLOW_WATER_WAVE, MODEL_NONE,
+      bhvShallowWaterWave },
+    { PARTICLE_SHALLOW_WATER_SPLASH, ACTIVE_PARTICLE_SHALLOW_WATER_SPLASH, MODEL_NONE,
+      bhvShallowWaterSplash },
     { PARTICLE_LEAF, ACTIVE_PARTICLE_LEAF, MODEL_NONE, bhvLeafParticleSpawner },
     { PARTICLE_SNOW, ACTIVE_PARTICLE_SNOW, MODEL_NONE, bhvSnowParticleSpawner },
     { PARTICLE_BREATH, ACTIVE_PARTICLE_BREATH, MODEL_NONE, bhvBreathParticleSpawner },
@@ -284,6 +286,42 @@ void bhv_mario_update(void) {
 
         i++;
     }
+#ifdef PROFILING
+    if (gCurrLevelNum == LEVEL_RR) {
+        // hit R twice and turn camera left twice too!
+        gMarioState->pos[0] = (s16) -2960;
+        gMarioState->pos[1] = (s16) 2364;
+        gMarioState->pos[2] = (s16) -152;
+
+        gMarioState->faceAngle[0] = 0;
+        gMarioState->faceAngle[1] = 7 * (0x10000 / 360);
+        gMarioState->faceAngle[2] = 0;
+    } else if (gCurrLevelNum == LEVEL_DDD) {
+        // no camera input needed
+        if (gCurrAreaIndex == 1) {
+            gMarioState->pos[0] = (s16) 4253;
+            gMarioState->pos[1] = (s16) 780;
+            gMarioState->pos[2] = (s16) 160;
+        } else {
+            gMarioState->pos[0] = (s16) 2857;
+            gMarioState->pos[1] = (s16) 878;
+            gMarioState->pos[2] = (s16) 3556;
+
+            gMarioState->faceAngle[0] = 0;
+            gMarioState->faceAngle[1] = 72 * (0x10000 / 360);
+            gMarioState->faceAngle[2] = 0;
+        }
+    }else if (gCurrLevelNum == LEVEL_JRB) {
+        // no camera input needed
+            gMarioState->pos[0] = (s16) -6182;
+            gMarioState->pos[1] = (s16) 1126;
+            gMarioState->pos[2] = (s16) 1041;
+
+            gMarioState->faceAngle[0] = 0;
+            gMarioState->faceAngle[1] = 63 * (0x10000 / 360);
+            gMarioState->faceAngle[2] = 0;
+    }
+#endif
 }
 
 /**
@@ -472,7 +510,7 @@ void spawn_objects_from_info(UNUSED s32 unused, struct SpawnInfo *spawnInfo) {
         struct Object *object;
         UNUSED s32 unused;
         const BehaviorScript *script;
-        UNUSED s16 arg16 = (s16)(spawnInfo->behaviorArg & 0xFFFF);
+        UNUSED s16 arg16 = (s16) (spawnInfo->behaviorArg & 0xFFFF);
 
         script = segmented_to_virtual(spawnInfo->behaviorScript);
 
@@ -612,7 +650,7 @@ static u16 unused_get_elapsed_time(u64 *cycleCounts, s32 index) {
         cycles = 0;
     }
 
-    time = (u16)(((u64) cycles * 1000000 / osClockRate) / 16667.0 * 1000.0);
+    time = (u16) (((u64) cycles * 1000000 / osClockRate) / 16667.0 * 1000.0);
     if (time > 999) {
         time = 999;
     }

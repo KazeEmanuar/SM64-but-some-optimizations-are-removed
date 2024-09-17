@@ -50,3 +50,5 @@
 #include "levels/rr/tricky_triangles_4/geo.inc.c"
 #include "levels/rr/tricky_triangles_5/geo.inc.c"
 #include "levels/rr/areas/1/geo.inc.c"
+
+#include "levels/rr/Statics/geo.inc.c"

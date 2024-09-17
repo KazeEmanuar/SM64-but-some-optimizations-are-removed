@@ -145,8 +145,7 @@
  *   0x06: s16 maxDistance
  */
 #define GEO_RENDER_RANGE(minDistance, maxDistance) \
-    CMD_BBH(0x0D, 0x00, 0x0000), \
-    CMD_HH(minDistance, maxDistance)
+    CMD_BBH(0x0B, 0x00, 0x0000)
 
 /**
  * 0x0E: Create switch-case scene graph node

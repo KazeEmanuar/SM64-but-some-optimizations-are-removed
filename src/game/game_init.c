@@ -97,7 +97,8 @@ void my_rdp_init(void) {
  */
 void my_rsp_init(void) {
     gSPClearGeometryMode(gDisplayListHead++, G_SHADE | G_SHADING_SMOOTH | G_CULL_BOTH | G_FOG
-                        | G_LIGHTING | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_LOD);
+                                                 | G_LIGHTING | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR
+                                                 | G_LOD);
 
     gSPSetGeometryMode(gDisplayListHead++, G_SHADE | G_SHADING_SMOOTH | G_CULL_BACK | G_LIGHTING);
 
@@ -121,8 +122,7 @@ void clear_z_buffer(void) {
     gDPSetDepthImage(gDisplayListHead++, gPhysicalZBuffer);
 
     gDPSetColorImage(gDisplayListHead++, G_IM_FMT_RGBA, G_IM_SIZ_16b, SCREEN_WIDTH, gPhysicalZBuffer);
-    gDPSetFillColor(gDisplayListHead++,
-                    GPACK_ZDZ(G_MAXFBZ, 0) << 16 | GPACK_ZDZ(G_MAXFBZ, 0));
+    gDPSetFillColor(gDisplayListHead++, GPACK_ZDZ(G_MAXFBZ, 0) << 16 | GPACK_ZDZ(G_MAXFBZ, 0));
 
     gDPFillRectangle(gDisplayListHead++, 0, BORDER_HEIGHT, SCREEN_WIDTH - 1,
                      SCREEN_HEIGHT - 1 - BORDER_HEIGHT);
@@ -221,17 +221,15 @@ void create_task_structure(void) {
     gGfxSPTask->task.t.ucode_data_size = SP_UCODE_DATA_SIZE;
     gGfxSPTask->task.t.dram_stack = (u64 *) gGfxSPTaskStack;
     gGfxSPTask->task.t.dram_stack_size = SP_DRAM_STACK_SIZE8;
-    #ifdef VERSION_EU
+#ifdef VERSION_EU
     // terrible hack
-    gGfxSPTask->task.t.output_buff = 
-        (u64 *)((u8 *) gGfxSPTaskOutputBuffer - 0x670 + 0x280);
-    gGfxSPTask->task.t.output_buff_size =
-        (u64 *)((u8 *) gGfxSPTaskOutputBuffer+ 0x280 + 0x17790);
-    #else
+    gGfxSPTask->task.t.output_buff = (u64 *) ((u8 *) gGfxSPTaskOutputBuffer - 0x670 + 0x280);
+    gGfxSPTask->task.t.output_buff_size = (u64 *) ((u8 *) gGfxSPTaskOutputBuffer + 0x280 + 0x17790);
+#else
     gGfxSPTask->task.t.output_buff = gGfxSPTaskOutputBuffer;
     gGfxSPTask->task.t.output_buff_size =
-        (u64 *)((u8 *) gGfxSPTaskOutputBuffer + sizeof(gGfxSPTaskOutputBuffer));
-    #endif
+        (u64 *) ((u8 *) gGfxSPTaskOutputBuffer + sizeof(gGfxSPTaskOutputBuffer));
+#endif
     gGfxSPTask->task.t.data_ptr = (u64 *) &gGfxPool->buffer;
     gGfxSPTask->task.t.data_size = entries * sizeof(Gfx);
     gGfxSPTask->task.t.yield_data_ptr = (u64 *) gGfxSPTaskYieldBuffer;
@@ -278,7 +276,8 @@ void draw_reset_bars(void) {
 
         for (sp24 = 0; sp24 < ((SCREEN_HEIGHT / 16) + 1); sp24++) {
             // Must be on one line to match -O2
-            for (sp20 = 0; sp20 < (SCREEN_WIDTH / 4); sp20++) *sp18++ = 0;
+            for (sp20 = 0; sp20 < (SCREEN_WIDTH / 4); sp20++)
+                *sp18++ = 0;
             sp18 += ((SCREEN_WIDTH / 4) * 14);
         }
     }
@@ -324,6 +323,7 @@ void display_and_vsync(void) {
     osRecvMesg(&gGameVblankQueue, &D_80339BEC, OS_MESG_BLOCK);
     osViSwapBuffer((void *) PHYSICAL_TO_VIRTUAL(gPhysicalFrameBuffers[sCurrFBNum]));
     profiler_log_thread5_time(THREAD5_END);
+    // remove the command below to unlimit the framerate (up to 60fps)
     osRecvMesg(&gGameVblankQueue, &D_80339BEC, OS_MESG_BLOCK);
     if (++sCurrFBNum == 3) {
         sCurrFBNum = 0;
@@ -577,12 +577,21 @@ void setup_game_memory(void) {
     load_segment(0x10, _entrySegmentRomStart, _entrySegmentRomEnd, MEMORY_POOL_LEFT);
     load_segment_decompress(2, _segment2_mio0SegmentRomStart, _segment2_mio0SegmentRomEnd);
 }
-
+#ifdef PROFILING
+#define LOG_COUNT 180
+f32 TimeDiffs[LOG_COUNT];
+int DiffIndex = 0;
+#endif
 // main game loop thread. runs forever as long as the game
 // continues.
 void thread5_game_loop(UNUSED void *arg) {
     struct LevelCommand *addr;
-
+    OSTime LastTime;
+    OSTime NewTime;
+    OSTime TimeDiff;
+    double Seconds;
+    int FullFrames, Thousands, Increments, i;
+    Increments = 0;
     setup_game_memory();
 #ifdef VERSION_SH
     init_rumble_pak_scheduler_queue();
@@ -631,5 +640,29 @@ void thread5_game_loop(UNUSED void *arg) {
             // amount of free space remaining.
             print_text_fmt_int(180, 20, "BUF %d", gGfxPoolEnd - (u8 *) gDisplayListHead);
         }
+#ifdef PROFILING
+        if (Increments < 20) {
+
+            Increments++;
+        } else {
+#define SECONDS_PER_CYCLE 0.000000021344717f
+            NewTime = osGetTime();
+            TimeDiff = NewTime - LastTime;
+            LastTime = NewTime;
+            Seconds = TimeDiff * SECONDS_PER_CYCLE;
+            TimeDiffs[DiffIndex] = Seconds/ LOG_COUNT;
+            DiffIndex = (DiffIndex+1) % LOG_COUNT;
+            Seconds = 0;
+            for (i = 0; i < LOG_COUNT; i++){
+                Seconds += TimeDiffs[i];
+            }
+            Thousands = ((int) (1000.f / Seconds)) % 1000;
+            FullFrames = 1.f / Seconds;
+    #define FPS_POS 20
+    #define FPS_Y 20
+           // print_text_fmt_int(FPS_POS, FPS_Y, "FPS %d", FullFrames);
+           // print_text_fmt_int(FPS_POS + 74, FPS_Y, "*%03d", Thousands);
+        }
+#endif
     }
 }

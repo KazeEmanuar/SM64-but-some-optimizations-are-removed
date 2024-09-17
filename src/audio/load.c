@@ -482,16 +482,9 @@ void patch_audio_bank(struct AudioBank *mem, u8 *offset, u32 numInstruments, u32
                 drum = PATCH(patched, mem);
                 mem->drums[i] = drum;
                 if (drum->loaded == 0) {
-#ifndef VERSION_EU
-                    //! copt replaces drum with 'patched' for these two lines
-                    PATCH_SOUND(&(*(struct Drum *)patched).sound, mem, offset);
-                    patched = (*(struct Drum *)patched).envelope;
-                    drum->envelope = (void *)((uintptr_t) mem + (uintptr_t) patched);
-#else
                     patch_sound(&drum->sound, (u8 *) mem, offset);
                     patched = drum->envelope;
                     drum->envelope = (void *)((uintptr_t) patched + (uintptr_t) mem);
-#endif
                     drum->loaded = 1;
                 }
 
@@ -521,15 +514,9 @@ l2:
                 instrument = *itInstrs;
 
                 if (instrument->loaded == 0) {
-#ifndef VERSION_EU
-                    PATCH_SOUND(&instrument->lowNotesSound, (u8 *) mem, offset);
-                    PATCH_SOUND(&instrument->normalNotesSound, (u8 *) mem, offset);
-                    PATCH_SOUND(&instrument->highNotesSound, (u8 *) mem, offset);
-#else
                     patch_sound(&instrument->lowNotesSound, (u8 *) mem, offset);
                     patch_sound(&instrument->normalNotesSound, (u8 *) mem, offset);
                     patch_sound(&instrument->highNotesSound, (u8 *) mem, offset);
-#endif
                     patched = instrument->envelope;
 #ifndef VERSION_EU
                     instrument->envelope = (void *)((uintptr_t) mem + (uintptr_t) patched);
