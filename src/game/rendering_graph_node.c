@@ -260,6 +260,25 @@ static void geo_process_perspective(struct GraphNodePerspective *node) {
 }
 
 /**
+ * Process a level of detail node. From the current transformation matrix,
+ * the perpendicular distance to the camera is extracted and the children
+ * of this node are only processed if that distance is within the render
+ * range of this node.
+ */
+static void geo_process_level_of_detail(struct GraphNodeLevelOfDetail *node) {
+    // The fixed point Mtx type is defined as 16 longs, but it's actually 16
+    // shorts for the integer parts followed by 16 shorts for the fraction parts
+    s16 *mtx = (s16 *) gMatStackFixed[gMatStackIndex];
+    s16 distanceFromCam = -mtx[14]; // z-component of the translation column
+
+    if (node->minDistance <= distanceFromCam && distanceFromCam < node->maxDistance) {
+        if (node->node.children != 0) {
+            geo_process_node_and_siblings(node->node.children);
+        }
+    }
+}
+
+/**
  * Process a switch case node. The node's selection function is called
  * if it is 0, and among the node's children, only the selected child is
  * processed next.
@@ -308,37 +327,12 @@ static void geo_process_camera(struct GraphNodeCamera *node) {
     gMatStackIndex--;
 }
 
-// NEW:
-void append_dl_and_process_next(struct GraphNodeDisplayList *node){
-    if (node->displayList != NULL) {
-        geo_append_display_list(node->displayList, node->node.flags >> 8);
-    }
-    if (node->node.children != NULL) {
-        geo_process_node_and_siblings(node->node.children);
-    }
-    gMatStackIndex--;
-}
-void increment_mat_stack() {
-    // increment a local version of gMatStackIndex to let GCC know not to account for overflow behavior
-    s32 LocalIndex = gMatStackIndex + 1;
-    Mtx *mtx = alloc_display_list(sizeof(*mtx));
-    mtxf_to_mtx(mtx, gMatStack[LocalIndex]);
-    gMatStackFixed[LocalIndex] = mtx;
-    gMatStackIndex = LocalIndex;
-}
-static void geo_process_translation_rotation(struct GraphNodeTranslationRotation *node) {
-    Mat4 mtxf;
-    Vec3f translation;
-    Mtx *mtx = alloc_display_list(sizeof(*mtx));
-
-    vec3s_to_vec3f(translation, node->translation);
-    mtxf_rotate_zxy_and_translate(mtxf, translation, node->rotation);
-    mtxf_mul(gMatStack[gMatStackIndex + 1], mtxf, gMatStack[gMatStackIndex]);
-    increment_mat_stack();
-    append_dl_and_process_next(node);
-}
-/*OLD:
-
+/**
+ * Process a translation / rotation node. A transformation matrix based
+ * on the node's translation and rotation is created and pushed on both
+ * the float and fixed point matrix stacks.
+ * For the rest it acts as a normal display list node.
+ */
 static void geo_process_translation_rotation(struct GraphNodeTranslationRotation *node) {
     Mat4 mtxf;
     Vec3f translation;
@@ -358,7 +352,6 @@ static void geo_process_translation_rotation(struct GraphNodeTranslationRotation
     }
     gMatStackIndex--;
 }
-*/
 
 /**
  * Process a translation node. A transformation matrix based on the node's
@@ -373,8 +366,16 @@ static void geo_process_translation(struct GraphNodeTranslation *node) {
     vec3s_to_vec3f(translation, node->translation);
     mtxf_rotate_zxy_and_translate(mtxf, translation, gVec3sZero);
     mtxf_mul(gMatStack[gMatStackIndex + 1], mtxf, gMatStack[gMatStackIndex]);
-    increment_mat_stack();
-    append_dl_and_process_next(node);
+    gMatStackIndex++;
+    mtxf_to_mtx(mtx, gMatStack[gMatStackIndex]);
+    gMatStackFixed[gMatStackIndex] = mtx;
+    if (node->displayList != NULL) {
+        geo_append_display_list(node->displayList, node->node.flags >> 8);
+    }
+    if (node->node.children != NULL) {
+        geo_process_node_and_siblings(node->node.children);
+    }
+    gMatStackIndex--;
 }
 
 /**
@@ -388,8 +389,16 @@ static void geo_process_rotation(struct GraphNodeRotation *node) {
 
     mtxf_rotate_zxy_and_translate(mtxf, gVec3fZero, node->rotation);
     mtxf_mul(gMatStack[gMatStackIndex + 1], mtxf, gMatStack[gMatStackIndex]);
-    increment_mat_stack();
-    append_dl_and_process_next(node);
+    gMatStackIndex++;
+    mtxf_to_mtx(mtx, gMatStack[gMatStackIndex]);
+    gMatStackFixed[gMatStackIndex] = mtx;
+    if (node->displayList != NULL) {
+        geo_append_display_list(node->displayList, node->node.flags >> 8);
+    }
+    if (node->node.children != NULL) {
+        geo_process_node_and_siblings(node->node.children);
+    }
+    gMatStackIndex--;
 }
 
 /**
@@ -404,8 +413,16 @@ static void geo_process_scale(struct GraphNodeScale *node) {
 
     vec3f_set(scaleVec, node->scale, node->scale, node->scale);
     mtxf_scale_vec3f(gMatStack[gMatStackIndex + 1], gMatStack[gMatStackIndex], scaleVec);
-    increment_mat_stack();
-    append_dl_and_process_next(node);
+    gMatStackIndex++;
+    mtxf_to_mtx(mtx, gMatStack[gMatStackIndex]);
+    gMatStackFixed[gMatStackIndex] = mtx;
+    if (node->displayList != NULL) {
+        geo_append_display_list(node->displayList, node->node.flags >> 8);
+    }
+    if (node->node.children != NULL) {
+        geo_process_node_and_siblings(node->node.children);
+    }
+    gMatStackIndex--;
 }
 
 /**
@@ -432,7 +449,13 @@ static void geo_process_billboard(struct GraphNodeBillboard *node) {
 
     mtxf_to_mtx(mtx, gMatStack[gMatStackIndex]);
     gMatStackFixed[gMatStackIndex] = mtx;
-    append_dl_and_process_next(node);
+    if (node->displayList != NULL) {
+        geo_append_display_list(node->displayList, node->node.flags >> 8);
+    }
+    if (node->node.children != NULL) {
+        geo_process_node_and_siblings(node->node.children);
+    }
+    gMatStackIndex--;
 }
 
 /**
@@ -552,8 +575,16 @@ static void geo_process_animated_part(struct GraphNodeAnimatedPart *node) {
     }
     mtxf_rotate_xyz_and_translate(matrix, translation, rotation);
     mtxf_mul(gMatStack[gMatStackIndex + 1], matrix, gMatStack[gMatStackIndex]);
-    increment_mat_stack();
-    append_dl_and_process_next(node);
+    gMatStackIndex++;
+    mtxf_to_mtx(matrixPtr, gMatStack[gMatStackIndex]);
+    gMatStackFixed[gMatStackIndex] = matrixPtr;
+    if (node->displayList != NULL) {
+        geo_append_display_list(node->displayList, node->node.flags >> 8);
+    }
+    if (node->node.children != NULL) {
+        geo_process_node_and_siblings(node->node.children);
+    }
+    gMatStackIndex--;
 }
 
 /**
@@ -757,11 +788,11 @@ static void geo_process_object(struct Object *node) {
     Mat4 mtxf;
     s32 hasAnimation = (node->header.gfx.node.flags & GRAPH_RENDER_HAS_ANIMATION) != 0;
 
-    if (node->header.gfx.unk18 == gCurGraphNodeRoot->areaIndex) {/*
+    if (node->header.gfx.unk18 == gCurGraphNodeRoot->areaIndex) {
         if (node->header.gfx.throwMatrix != NULL) {
             mtxf_mul(gMatStack[gMatStackIndex + 1], (void *) node->header.gfx.throwMatrix,
                      gMatStack[gMatStackIndex]);
-        } else */if (node->header.gfx.node.flags & GRAPH_RENDER_BILLBOARD) {
+        } else if (node->header.gfx.node.flags & GRAPH_RENDER_BILLBOARD) {
             mtxf_billboard(gMatStack[gMatStackIndex + 1], gMatStack[gMatStackIndex],
                            node->header.gfx.pos, gCurGraphNodeCamera->roll);
         } else {
@@ -771,7 +802,7 @@ static void geo_process_object(struct Object *node) {
 
         mtxf_scale_vec3f(gMatStack[gMatStackIndex + 1], gMatStack[gMatStackIndex + 1],
                          node->header.gfx.scale);
-        ++gMatStackIndex;
+        node->header.gfx.throwMatrix = gMatStack[++gMatStackIndex];
         node->header.gfx.cameraToObject[0] = gMatStack[gMatStackIndex][3][0];
         node->header.gfx.cameraToObject[1] = gMatStack[gMatStackIndex][3][1];
         node->header.gfx.cameraToObject[2] = gMatStack[gMatStackIndex][3][2];
@@ -799,7 +830,7 @@ static void geo_process_object(struct Object *node) {
 
         gMatStackIndex--;
         gCurAnimType = ANIM_TYPE_NONE;
-        //node->header.gfx.throwMatrix = NULL;
+        node->header.gfx.throwMatrix = NULL;
     }
 }
 
@@ -842,7 +873,7 @@ void geo_process_held_object(struct GraphNodeHeldObject *node) {
         translation[2] = node->translation[2] / 4.0f;
 
         mtxf_translate(mat, translation);
-        //mtxf_copy(gMatStack[gMatStackIndex + 1], (void *) gCurGraphNodeObject->throwMatrix);
+        mtxf_copy(gMatStack[gMatStackIndex + 1], (void *) gCurGraphNodeObject->throwMatrix);
         gMatStack[gMatStackIndex + 1][3][0] = gMatStack[gMatStackIndex][3][0];
         gMatStack[gMatStackIndex + 1][3][1] = gMatStack[gMatStackIndex][3][1];
         gMatStack[gMatStackIndex + 1][3][2] = gMatStack[gMatStackIndex][3][2];
@@ -924,6 +955,9 @@ void geo_process_node_and_siblings(struct GraphNode *firstNode) {
                     case GRAPH_NODE_TYPE_MASTER_LIST:
                         geo_process_master_list((struct GraphNodeMasterList *) curGraphNode);
                         break;
+                    case GRAPH_NODE_TYPE_LEVEL_OF_DETAIL:
+                        geo_process_level_of_detail((struct GraphNodeLevelOfDetail *) curGraphNode);
+                        break;
                     case GRAPH_NODE_TYPE_SWITCH_CASE:
                         geo_process_switch((struct GraphNodeSwitchCase *) curGraphNode);
                         break;
@@ -976,9 +1010,9 @@ void geo_process_node_and_siblings(struct GraphNode *firstNode) {
                 }
             }
         } else {
-            /*if (curGraphNode->type == GRAPH_NODE_TYPE_OBJECT) {
+            if (curGraphNode->type == GRAPH_NODE_TYPE_OBJECT) {
                 ((struct GraphNodeObject *) curGraphNode)->throwMatrix = NULL;
-            }*/
+            }
         }
     } while (iterateChildren && (curGraphNode = curGraphNode->next) != firstNode);
 }

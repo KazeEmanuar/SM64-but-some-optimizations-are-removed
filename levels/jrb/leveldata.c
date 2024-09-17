@@ -39,5 +39,3 @@
 #include "levels/jrb/areas/2/collision.inc.c"
 #include "levels/jrb/areas/2/macro.inc.c"
 #include "levels/jrb/areas/2/movtext.inc.c"
-
-#include "levels/jrb/Rocks/model.inc.c"

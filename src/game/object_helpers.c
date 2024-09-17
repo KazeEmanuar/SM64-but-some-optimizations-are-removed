@@ -1841,11 +1841,30 @@ void cur_obj_move_standard(s16 steepSlopeAngleDegrees) {
         }
     }
 }
+
+static s32 cur_obj_within_12k_bounds(void) {
+    if (o->oPosX < -12000.0f || 12000.0f < o->oPosX) {
+        return FALSE;
+    }
+
+    if (o->oPosY < -12000.0f || 12000.0f < o->oPosY) {
+        return FALSE;
+    }
+
+    if (o->oPosZ < -12000.0f || 12000.0f < o->oPosZ) {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 void cur_obj_move_using_vel_and_gravity(void) {
+    if (cur_obj_within_12k_bounds()) {
         o->oPosX += o->oVelX;
         o->oPosZ += o->oVelZ;
         o->oVelY += o->oGravity; //! No terminal velocity
         o->oPosY += o->oVelY;
+    }
 }
 
 void cur_obj_move_using_fvel_and_gravity(void) {
